@@ -1,0 +1,16 @@
+{
+  "name": "radix-router",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test --experimental-test-coverage --test-reporter dot",
+    "test:watch": "node --test --watch --experimental-test-coverage --test-reporter dot"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0"
+  }
+}
