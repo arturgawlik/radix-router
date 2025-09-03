@@ -16,8 +16,15 @@ export class RadixRouter {
         this.#register('GET', path, handler);
     }
     lookup(method: Method, path: Path) {
-        const handler: Handler = this.#traverseForHandler(method, path) ?? this.#notFondHandler;
+        const clearedPath = this.#clearPath(path);
+        const handler: Handler = this.#traverseForHandler(method, clearedPath) ?? this.#notFondHandler;
         handler();
+    }
+    #clearPath(path: Path): Path {
+        if (path.length > 1 && path.endsWith('/')) {
+            path = path.slice(0, path.length - 1);
+        }
+        return path;
     }
     #traverseForHandler(method: Method, path: Path): Handler | undefined {
         let node: Node;
@@ -52,6 +59,7 @@ export class RadixRouter {
     #validatePath(path: Path) {
         assert.equal(typeof path, "string", "path must be a string");
         assert(path.startsWith('/'),  "path must start with /");
+        path.length > 1 && assert(!path.endsWith('/'),  "path can't end with /");
     }
     #validateHandler(handler: Handler) {
         assert.equal(typeof handler, "function", "handler must be a function");

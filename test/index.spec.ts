@@ -110,3 +110,27 @@ test('should call 404 handler when there is no path found', (t) => {
     assert.equal(notFoundHandler.mock.callCount(), 1)
 });
 
+test('should handle case when node has childrens and is leaf', (t) => {
+    const router = new RadixRouter();
+    const mockHandlerA = t.mock.fn();
+    const mockHandlerA1 = t.mock.fn();
+    router.get('/A', mockHandlerA);
+    router.get('/A/1', mockHandlerA1);
+    router.lookup('GET', '/A');
+    assert.equal(mockHandlerA.mock.callCount(), 1);
+    assert.equal(mockHandlerA1.mock.callCount(), 0);
+});
+
+test('should handle case when lookup is called with additional / at the end', (t) => {
+    const router = new RadixRouter();
+    const mockHandlerA = t.mock.fn();
+    router.get('/A', mockHandlerA);
+    router.lookup('GET', '/A/');
+    assert.equal(mockHandlerA.mock.callCount(), 1);
+});
+
+test('should throw when handler is registered with / at the end', (t) => {
+    const router = new RadixRouter();
+    assert.throws(() => router.get('/A/', () => {}), /path can't end with \//)
+});
+
