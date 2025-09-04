@@ -134,3 +134,16 @@ test('should throw when handler is registered with / at the end', (t) => {
     assert.throws(() => router.get('/A/', () => {}), /path can't end with \//)
 });
 
+test('should throw when handler is registered with : at the end', (t) => {
+    const router = new RadixRouter();
+    assert.throws(() => router.get('/A:', () => {}), /path can't end with :/)
+});
+
+test('should call handler with parameter', (t) => {
+    const router = new RadixRouter();
+    const mockHandlerA = t.mock.fn();
+    router.get('/A/:id', mockHandlerA);
+    router.lookup('GET', '/A/123');
+    assert.equal(mockHandlerA.mock.callCount(), 1);
+    assert.deepEqual(mockHandlerA.mock.calls[0].arguments, [{ id: '123' }]);
+});
