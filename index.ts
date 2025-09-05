@@ -4,13 +4,8 @@ type Method = string;
 type Path = string;
 type Handler = (() => unknown) | ((params: ParsedParams) => unknown);
 type PathFragment = string;
-type Tree = Record<PathFragment, Node>;
 type TreeByMethod = Record<Method, Tree>;
-type Param = string;
-type FoundParam = { startIndex: number, endIndex: number };
-type FoundParams = Record<Param, FoundParam>;
-type FoundParamsByStartIndex = Record<number, { param: Param, endIndex: number }>;
-type FoundParamWithName = FoundParam & { param: string };
+type NodeByPathFragment = Record<PathFragment, Node>;
 type ParsedParams = Record<string, string>;
 
 export class RadixRouter {
@@ -34,10 +29,11 @@ export class RadixRouter {
         }
         return path;
     }
-    #traverseForHandler(method: Method, path: Path): { handler: Handler | undefined; parsedParams: ParsedParams  } {
+    #traverseForHandler(method: Method, path: Path): { handler: Handler | undefined; parsedParams: ParsedParams } {
+    // TODO probably Tree should be responsible for traversing
         let node: Node;
         let parsedParams: ParsedParams = {};
-        let tree = this.#treeByMethod[method];
+        let tree: NodeByPathFragment = this.#treeByMethod[method]?.nodeByPathFragment;
         if (!tree) {
             return undefined;
         }
@@ -65,7 +61,7 @@ export class RadixRouter {
                         paramValueEndIndex = path.length;
                     }
                     const paramValue = path.slice(nextPosition, paramValueEndIndex);
-                    parsedParams[node.param.param] = paramValue;
+                    parsedParams[node.param.name] = paramValue;
                     // remove parameter from path
                     path = path.slice(0, i + 1) + path.slice(paramValueEndIndex, path.length);
                 }
@@ -73,7 +69,7 @@ export class RadixRouter {
             i++;
         }
         if (node instanceof Leaf) {
-            return { handler: node.handler, parsedParams  };
+            return { handler: node.handler, parsedParams };
         }
         // node was node found or is not a Leaf
         return undefined;
@@ -83,26 +79,45 @@ export class RadixRouter {
         this.#validateHandler(handler);
         this.#buildTree(method, path, handler);
     }
+    #buildTree(method: Method, path: Path, handler: Handler) {
+        let tree = this.#treeByMethod[method];
+        if (!tree) {
+            tree = new Tree();
+            this.#treeByMethod[method] = tree;
+        }
+        tree.build(path, handler);
+    }
     #validatePath(path: Path) {
         assert.equal(typeof path, "string", "path must be a string");
-        assert(path.startsWith('/'),  "path must start with /");
-        path.length > 1 && assert(!path.endsWith('/'),  "path can't end with /");
-        assert(!path.endsWith(':'),  "path can't end with :");
+        assert(path.startsWith('/'), "path must start with /");
+        path.length > 1 && assert(!path.endsWith('/'), "path can't end with /");
+        assert(!path.endsWith(':'), "path can't end with :");
     }
     #validateHandler(handler: Handler) {
         assert.equal(typeof handler, "function", "handler must be a function");
     }
-    #buildTree(method: Method, path: Path, handler: Handler) {
+}
+
+class Tree {
+    nodeByPathFragment: NodeByPathFragment = {};
+    constructor() {
+    }
+    build(path: Path, handler: Handler) {
+        this.#buildTree(path, handler);
+    }
+    #buildTree(path: Path, handler: Handler) {
         // TODO: this is now `trie`, not `radix tree` - to improve
-        let tree = this.#getRootNode(method);
-        let { foundParams, foundParamsByStartIndex } = this.#handleParams(path);
+        // let tree = this.#getRootNode(this.#method);
+        let tree = this.nodeByPathFragment;
+        let params = this.#createParams(path);
         let node: Node;
         let i = 1
         while (i <= path.length) {
-            if (foundParamsByStartIndex[i]) {
-                node.param = { ...foundParams[foundParamsByStartIndex[i].param], param: foundParamsByStartIndex[i].param }
+            if (params.hasAtPathIndex(i)) {
+                const param = params.getAtPathIndex(i);
+                node.param = param;
                 // remove parameter from path 
-                path = path.slice(0, i) + path.slice(foundParamsByStartIndex[i].endIndex, path.length);
+                path = path.slice(0, i) + path.slice(param.endIndex, path.length);
             }
             const pathFragment: PathFragment = path.slice(0, i);
             node = tree[pathFragment];
@@ -115,48 +130,60 @@ export class RadixRouter {
             i++;
         }
     }
-    #handleParams(path: Path): { foundParams: FoundParams, foundParamsByStartIndex: FoundParamsByStartIndex } {
-        const foundParams: FoundParams = {};
-        const foundParamsByStartIndex: FoundParamsByStartIndex = {};
+    #createParams(path: Path): Params {
+        const params = new Params(path);
+        return params;
+    }
+}
+
+class Params {
+    #foundParams: Param[] = [];
+    #path: Path;
+    constructor(path: Path) {
+        this.#path = path;
+        this.#parseParams();
+    }
+    hasAtPathIndex(index: number): boolean {
+        return Boolean(this.getAtPathIndex(index));
+    }
+    getAtPathIndex(index: number): Param {
+        return this.#foundParams.find(({ startIndex }) => startIndex === index);
+    }
+    #parseParams() {
         let nextParamEndIndex = 0;
         let nextParamStartIndex;
-        while(0 < (nextParamStartIndex = path.indexOf(':', nextParamEndIndex))) {
-            nextParamEndIndex = path.indexOf('/', nextParamStartIndex);
+        while (0 < (nextParamStartIndex = this.#path.indexOf(':', nextParamEndIndex))) {
+            nextParamEndIndex = this.#path.indexOf('/', nextParamStartIndex);
             if (nextParamEndIndex === -1) {
-                nextParamEndIndex = path.indexOf('?', nextParamStartIndex);
+                nextParamEndIndex = this.#path.indexOf('?', nextParamStartIndex);
             }
             if (nextParamEndIndex === -1) {
-                nextParamEndIndex = path.length;
+                nextParamEndIndex = this.#path.length;
             }
             // +1 to strip out ":"
-            const paramName = path.slice(nextParamStartIndex + 1, nextParamEndIndex);
-            foundParams[paramName] = {
-                startIndex: nextParamStartIndex,
-                endIndex: nextParamEndIndex
-            };
-            foundParamsByStartIndex[nextParamStartIndex] = {
-                param: paramName,
-                endIndex: nextParamEndIndex
-            };
+            const paramName = this.#path.slice(nextParamStartIndex + 1, nextParamEndIndex);
+            const param = new Param(paramName, nextParamStartIndex, nextParamEndIndex);
+            this.#foundParams.push(param);
         }
-        return { foundParams, foundParamsByStartIndex };
     }
-    #getRootNode(method: Method): Tree {
-        this.#createRootIfNotExists(method);
-        return this.#treeByMethod[method];
-    }
-    #createRootIfNotExists(method: Method) {
-        if (!this.#treeByMethod[method]) {
-            this.#treeByMethod[method] = {};
-        }
+}
+
+class Param {
+    name;
+    startIndex;
+    endIndex;
+    constructor(name: string, startIndex: number, endIndex: number) {
+        this.name = name;
+        this.startIndex = startIndex;
+        this.endIndex = endIndex;
     }
 }
 
 class Node {
     #pathFragment: PathFragment;
-    childTree: Tree = {};
-    param: FoundParamWithName;
-    constructor(pathFragment: PathFragment) { 
+    childTree: NodeByPathFragment = {};
+    param: Param;
+    constructor(pathFragment: PathFragment) {
         this.#pathFragment = pathFragment;
     }
 }
@@ -169,4 +196,4 @@ class Leaf extends Node {
     }
 }
 
-const noopFn = () => {};
+const noopFn = () => { };
