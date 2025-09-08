@@ -7,6 +7,10 @@ type PathFragment = string;
 type TreeByMethod = Record<Method, Tree>;
 type NodeByPathFragment = Record<PathFragment, Node>;
 type ParsedParams = Record<string, string>;
+type TraverseResult = {
+    handler: Handler,
+    parsedParams: ParsedParams
+};
 
 export class RadixRouter {
     #treeByMethod: TreeByMethod = {};
@@ -29,24 +33,63 @@ export class RadixRouter {
         }
         return path;
     }
-    #traverseForHandler(method: Method, path: Path): { handler: Handler | undefined; parsedParams: ParsedParams } {
-    // TODO probably Tree should be responsible for traversing
+    #traverseForHandler(method: Method, path: Path): TraverseResult | undefined {
+        let tree = this.#treeByMethod[method];
+        if (tree) {
+            return tree.traverse(path);
+        }
+    }
+    #register(method: Method, path: Path, handler: Handler) {
+        this.#validatePath(path);
+        this.#validateHandler(handler);
+        this.#buildTree(method, path, handler);
+    }
+    #buildTree(method: Method, path: Path, handler: Handler) {
+        let tree = this.#treeByMethod[method];
+        if (!tree) {
+            tree = new Tree();
+            this.#treeByMethod[method] = tree;
+        }
+        tree.build(path, handler);
+    }
+    #validatePath(path: Path) {
+        assert.equal(typeof path, "string", "path must be a string");
+        assert(path.startsWith('/'), "path must start with /");
+        path.length > 1 && assert(!path.endsWith('/'), "path can't end with /");
+        assert(!path.endsWith(':'), "path can't end with :");
+    }
+    #validateHandler(handler: Handler) {
+        assert.equal(typeof handler, "function", "handler must be a function");
+    }
+}
+
+class Tree {
+    #nodeByPathFragment: NodeByPathFragment = {};
+    constructor() {
+    }
+    build(path: Path, handler: Handler) {
+        this.#buildTree(path, handler);
+    }
+    traverse(path: Path): TraverseResult | undefined {
+        return this.#traverseForHandler(path);
+    }
+    #traverseForHandler(path: Path) {
         let node: Node;
         let parsedParams: ParsedParams = {};
-        let tree: NodeByPathFragment = this.#treeByMethod[method]?.nodeByPathFragment;
-        if (!tree) {
+        let nodeByPathFragment: NodeByPathFragment = this.#nodeByPathFragment;
+        if (!nodeByPathFragment) {
             return undefined;
         }
         let i = 1
         while (i <= path.length) {
             const pathFragment: PathFragment = path.slice(0, i);
-            node = tree[pathFragment];
+            node = nodeByPathFragment[pathFragment];
             if (!node) {
                 // node do not exists aka. dead end
                 break;
             }
-            tree = node.childTree;
-            if (!tree) {
+            nodeByPathFragment = node.childTree;
+            if (!nodeByPathFragment) {
                 // node do not have children's aka. dead end
                 break;
             }
@@ -74,41 +117,9 @@ export class RadixRouter {
         // node was node found or is not a Leaf
         return undefined;
     }
-    #register(method: Method, path: Path, handler: Handler) {
-        this.#validatePath(path);
-        this.#validateHandler(handler);
-        this.#buildTree(method, path, handler);
-    }
-    #buildTree(method: Method, path: Path, handler: Handler) {
-        let tree = this.#treeByMethod[method];
-        if (!tree) {
-            tree = new Tree();
-            this.#treeByMethod[method] = tree;
-        }
-        tree.build(path, handler);
-    }
-    #validatePath(path: Path) {
-        assert.equal(typeof path, "string", "path must be a string");
-        assert(path.startsWith('/'), "path must start with /");
-        path.length > 1 && assert(!path.endsWith('/'), "path can't end with /");
-        assert(!path.endsWith(':'), "path can't end with :");
-    }
-    #validateHandler(handler: Handler) {
-        assert.equal(typeof handler, "function", "handler must be a function");
-    }
-}
-
-class Tree {
-    nodeByPathFragment: NodeByPathFragment = {};
-    constructor() {
-    }
-    build(path: Path, handler: Handler) {
-        this.#buildTree(path, handler);
-    }
     #buildTree(path: Path, handler: Handler) {
         // TODO: this is now `trie`, not `radix tree` - to improve
-        // let tree = this.#getRootNode(this.#method);
-        let tree = this.nodeByPathFragment;
+        let tree = this.#nodeByPathFragment;
         let params = this.#createParams(path);
         let node: Node;
         let i = 1
