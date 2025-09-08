@@ -65,8 +65,6 @@ export class RadixRouter {
 
 class Tree {
     #nodeByPathFragment: NodeByPathFragment = {};
-    constructor() {
-    }
     build(path: Path, handler: Handler) {
         this.#buildTree(path, handler);
     }
