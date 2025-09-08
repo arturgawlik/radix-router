@@ -132,7 +132,7 @@ class Tree {
             node = tree[pathFragment];
             if (!node) {
                 const isLeaf = i === path.length;
-                node = isLeaf ? new Leaf(pathFragment, handler) : new Node(pathFragment);
+                node = isLeaf ? new Leaf(handler) : new Node();
                 tree[pathFragment] = node;
             }
             tree = node.childTree;
@@ -189,18 +189,14 @@ class Param {
 }
 
 class Node {
-    #pathFragment: PathFragment;
     childTree: NodeByPathFragment = {};
     param: Param;
-    constructor(pathFragment: PathFragment) {
-        this.#pathFragment = pathFragment;
-    }
 }
 
 class Leaf extends Node {
     handler: Handler;
-    constructor(pathFragment: PathFragment, handler: Handler) {
-        super(pathFragment);
+    constructor(handler: Handler) {
+        super();
         this.handler = handler;
     }
 }
