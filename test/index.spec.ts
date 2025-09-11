@@ -147,3 +147,13 @@ test('should call handler with parameter', (t) => {
     assert.equal(mockHandlerA.mock.callCount(), 1);
     assert.deepEqual(mockHandlerA.mock.calls[0].arguments, [{ id: '123' }]);
 });
+
+test('should call handler with multiple parameters', (t) => {
+    const router = new RadixRouter();
+    const mockHandlerA = t.mock.fn();
+    router.get('/A/:id1/B/:id2', mockHandlerA);
+    router.get('/B/:id3', mockHandlerA);
+    router.lookup('GET', '/A/123/B/321');
+    assert.equal(mockHandlerA.mock.callCount(), 1);
+    assert.deepEqual(mockHandlerA.mock.calls[0].arguments, [{ id1: '123', id2: '321' }]);
+});

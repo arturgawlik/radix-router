@@ -104,7 +104,7 @@ class Tree {
                     const paramValue = path.slice(nextPosition, paramValueEndIndex);
                     parsedParams[node.param.name] = paramValue;
                     // remove parameter from path
-                    path = path.slice(0, i + 1) + path.slice(paramValueEndIndex, path.length);
+                    path = path.slice(0, i) + path.slice(paramValueEndIndex);
                 }
             }
             i++;
@@ -118,23 +118,38 @@ class Tree {
     #buildTree(path: Path, handler: Handler) {
         // TODO: this is now `trie`, not `radix tree` - to improve
         let tree = this.#nodeByPathFragment;
+        let previousTree: NodeByPathFragment;
         let params = this.#createParams(path);
         let node: Node;
         let i = 1
+        let offsetAfterParamsRemove = 0;
+        let param: Param;
         while (i <= path.length) {
-            if (params.hasAtPathIndex(i)) {
-                const param = params.getAtPathIndex(i);
+            if (params.hasAtPathIndex(i + offsetAfterParamsRemove)) {
+                param = params.getAtPathIndex(i + offsetAfterParamsRemove);
                 node.param = param;
                 // remove parameter from path 
-                path = path.slice(0, i) + path.slice(param.endIndex, path.length);
+                // +1 because do want to remove additional slash
+                const lengthBeforeSlice = path.length;
+                path = path.slice(0, i - 1) + path.slice(param.endIndex);
+                const lengthAfterSlice = path.length;
+                offsetAfterParamsRemove += lengthBeforeSlice - lengthAfterSlice;
             }
             const pathFragment: PathFragment = path.slice(0, i);
             node = tree[pathFragment];
-            if (!node) {
-                const isLeaf = i === path.length;
+            if (!node && i > path.length) {
+                // current node needs to be updated to leaf because
+                // it occurred that after slicing path that was last
+                // peace of it
+                node = new Leaf(handler);
+                node.param = param;
+                previousTree[pathFragment] = node;
+            } else if (!node) {
+                const isLeaf = i >= path.length;
                 node = isLeaf ? new Leaf(handler) : new Node();
                 tree[pathFragment] = node;
             }
+            previousTree = tree;
             tree = node.childTree;
             i++;
         }
