@@ -78,6 +78,7 @@ class Tree {
         if (!nodeByPathFragment) {
             return undefined;
         }
+        path = this.#parseQueryParams(path, parsedParams);
         let i = 1
         while (i <= path.length) {
             const pathFragment: PathFragment = path.slice(0, i);
@@ -114,6 +115,22 @@ class Tree {
         }
         // node was node found or is not a Leaf
         return undefined;
+    }
+    #parseQueryParams(path: Path, params: ParsedParams): Path {
+        const queryParamFromPathDelimiter = '?';
+        if (path.includes(queryParamFromPathDelimiter)) {
+            const [pathWithoutParams, queryParamsStr] = path.split(queryParamFromPathDelimiter);
+            path = pathWithoutParams;
+            if (queryParamsStr) {
+                for (const queryParamStr of queryParamsStr.split('&')) {
+                    const [key, value] = queryParamStr.split('=');
+                    if (key && value) {
+                        params[key] = value;
+                    }
+                }
+            }
+        }
+        return path;
     }
     #buildTree(path: Path, handler: Handler) {
         // TODO: this is now `trie`, not `radix tree` - to improve

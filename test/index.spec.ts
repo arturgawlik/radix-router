@@ -163,3 +163,12 @@ test('should call handler with multiple parameters', (t) => {
     assert.deepEqual(mockHandlerB.mock.calls[0].arguments, [{ id3: 'xyz' }]);
     assert.deepEqual(mockHandlerB.mock.calls[1].arguments, [{ id3: 'abc' }]);
 });
+
+test('should call handler with query parameters', (t) => {
+    const router = new RadixRouter();
+    const mockHandlerA = t.mock.fn();
+    router.get('/A', mockHandlerA);
+    router.lookup('GET', '/A?queryParameter=123');
+    assert.equal(mockHandlerA.mock.callCount(), 1);
+    assert.deepEqual(mockHandlerA.mock.calls[0].arguments, [{ queryParameter: '123' }]);
+});
