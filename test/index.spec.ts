@@ -131,12 +131,12 @@ test('should handle case when lookup is called with additional / at the end', (t
 
 test('should throw when handler is registered with / at the end', (t) => {
     const router = new RadixRouter();
-    assert.throws(() => router.get('/A/', () => {}), /path can't end with \//)
+    assert.throws(() => router.get('/A/', () => { }), /path can't end with \//)
 });
 
 test('should throw when handler is registered with : at the end', (t) => {
     const router = new RadixRouter();
-    assert.throws(() => router.get('/A:', () => {}), /path can't end with :/)
+    assert.throws(() => router.get('/A:', () => { }), /path can't end with :/)
 });
 
 test('should call handler with parameter', (t) => {
@@ -171,4 +171,22 @@ test('should call handler with query parameters', (t) => {
     router.lookup('GET', '/A?queryParameter=123');
     assert.equal(mockHandlerA.mock.callCount(), 1);
     assert.deepEqual(mockHandlerA.mock.calls[0].arguments, [{ queryParameter: '123' }]);
+});
+
+test('should call handler with multiple query parameters', (t) => {
+    const router = new RadixRouter();
+    const mockHandlerA = t.mock.fn();
+    router.get('/A', mockHandlerA);
+    router.lookup('GET', '/A?queryParam1=123&queryParam2=321&queryParam3=xyz');
+    assert.equal(mockHandlerA.mock.callCount(), 1);
+    assert.deepEqual(mockHandlerA.mock.calls[0].arguments, [{ queryParam1: '123', queryParam2: '321', queryParam3: 'xyz' }]);
+});
+
+test('should call handler parameters and query parameters', (t) => {
+    const router = new RadixRouter();
+    const mockHandlerA = t.mock.fn();
+    router.get('/A/:id1/B', mockHandlerA);
+    router.lookup('GET', '/A/6574/B?queryParam1=123&queryParam2=321&queryParam3=xyz');
+    assert.equal(mockHandlerA.mock.callCount(), 1);
+    assert.deepEqual(mockHandlerA.mock.calls[0].arguments, [{ id1: '6574', queryParam1: '123', queryParam2: '321', queryParam3: 'xyz' }]);
 });
